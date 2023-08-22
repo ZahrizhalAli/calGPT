@@ -43,6 +43,20 @@ def get_batch(split):
     x, y = x.to(device), y.to(device)
     return x, y
 
+@torch.no_grad()
+def estimate_loss():
+    out = {}
+    model.eval()
+    for split in ['train', 'val']:
+        losses = torch.zeros(eval_iters)
+        for k in range(eval_iters):
+            X, Y = get_batch(split)
+            logits, loss = model(X, Y)
+            losses[k] = loss.item()
+        out[split] = losses.mean()
+    model.train()
+    return out
+
 # super simple bigram model
 class BigramLanguageModel(nn.Module):
 
@@ -88,7 +102,11 @@ model.to(device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 batch_size = 32 # increase the batch size instead of using 4 like above
-for steps in range(1000): # increase number of steps for good results...
+for steps in range(10000): # increase number of steps for good results...
+    # every once in a while evaluate the loss on train and val sets
+    if steps % eval_interval == 0:
+        losses = estimate_loss()
+        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
     # sample a batch of data
     xb, yb = get_batch('train')
